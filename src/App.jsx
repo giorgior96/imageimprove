@@ -58,6 +58,8 @@ export default function App() {
 
   const progress = useMemo(() => buildImportProgress(currentImport), [currentImport]);
   const batch = useMemo(() => buildBatchSummary(currentImport), [currentImport]);
+  const recommendedCover = useMemo(() => pickRecommendedCover(currentImport), [currentImport]);
+  const outcome = useMemo(() => buildOutcomeSummary(currentImport), [currentImport]);
 
   async function refreshImport(importId) {
     try {
@@ -175,6 +177,18 @@ export default function App() {
     } catch (error) {
       setFeedbackState(error.message || "Approvazione non riuscita.", "error");
     }
+  }
+
+  function handleDownloadApproved() {
+    if (!currentImport) {
+      setFeedbackState("Prima completa un import.", "error");
+      return;
+    }
+    if (!outcome.approvedCount) {
+      setFeedbackState("Approva almeno una foto prima di scaricare il pacchetto finale.", "error");
+      return;
+    }
+    window.location.assign(resolveApiUrl(`/imports/${currentImport.id}/export.zip?scope=approved`));
   }
 
   function mergeImage(incoming) {
@@ -388,22 +402,86 @@ export default function App() {
               <p>Le immagini restano nello stesso ordine dell&apos;import. Le card si aggiornano mentre arrivano i risultati.</p>
             </div>
 
-            <div className="summary-card">
-              <h3>Avanzamento batch AI</h3>
-              <div className="step-progress">
-                <div className="step-progress__head">
-                  <strong>{batch.processedCount}/{batch.totalCount} elaborate</strong>
-                  <span>{batch.busyCount ? `${batch.busyCount} in lavorazione` : "Batch aggiornato"}</span>
+            <div className="review-overview">
+              <section className="review-showcase-card">
+                <div className="review-showcase-card__copy">
+                  <p className="eyebrow">Copertina consigliata</p>
+                  <h3>
+                    {recommendedCover
+                      ? `Foto ${recommendedCover.index + 1} pronta per la vetrina`
+                      : "Sto preparando la cover consigliata"}
+                  </h3>
+                  <p>
+                    {recommendedCover
+                      ? recommendedCover.copy
+                      : "Appena arriva una Hero o una foto pronta da usare, qui ti mostro subito la copertina più forte del set."}
+                  </p>
+                  <div className="summary-card__meta">
+                    {recommendedCover ? <Badge tone="success">Foto {recommendedCover.index + 1}</Badge> : null}
+                    {recommendedCover?.modeLabel ? <Badge>{recommendedCover.modeLabel}</Badge> : null}
+                    {recommendedCover?.statusLabel ? <Badge>{recommendedCover.statusLabel}</Badge> : null}
+                  </div>
                 </div>
-                <div className="step-progress__bar">
-                  <div className="step-progress__fill" style={{ width: `${batch.progressPercent}%` }} />
+
+                <div className="review-showcase-card__media">
+                  {recommendedCover?.image ? (
+                    <>
+                      <img
+                        src={bestDisplayUrl(recommendedCover.image)}
+                        alt={`Copertina consigliata foto ${recommendedCover.index + 1}`}
+                      />
+                      <div className="review-showcase-card__media-chip">Copertina consigliata</div>
+                    </>
+                  ) : (
+                    <div className="review-showcase-card__placeholder">
+                      <span>Hero in preparazione</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="summary-card__meta">
-                <Badge>{batch.readyCount} pronte</Badge>
-                <Badge>{batch.approvedCount} approvate</Badge>
-                {batch.failedCount > 0 ? <Badge tone="danger">{batch.failedCount} fallite</Badge> : null}
-              </div>
+              </section>
+
+              <section className="review-insight-card">
+                <div className="review-insight-card__head">
+                  <div>
+                    <p className="eyebrow">Risultato del listing</p>
+                    <h3>{outcome.headline}</h3>
+                  </div>
+                  <button
+                    className="button button--primary"
+                    type="button"
+                    disabled={!outcome.approvedCount}
+                    onClick={handleDownloadApproved}
+                  >
+                    Scarica approvate
+                  </button>
+                </div>
+
+                <div className="step-progress">
+                  <div className="step-progress__head">
+                    <strong>{batch.processedCount}/{batch.totalCount} elaborate</strong>
+                    <span>{batch.busyCount ? `${batch.busyCount} in lavorazione` : "Batch aggiornato"}</span>
+                  </div>
+                  <div className="step-progress__bar">
+                    <div className="step-progress__fill" style={{ width: `${batch.progressPercent}%` }} />
+                  </div>
+                </div>
+
+                <div className="review-insight-card__metrics">
+                  <MetricCard value={outcome.heroCount} label="Hero pronte" />
+                  <MetricCard value={outcome.galleryCount} label="Gallery migliorate" />
+                  <MetricCard value={outcome.approvedCount} label="Già approvate" />
+                  <MetricCard value={`~${outcome.minutesSaved} min`} label="Tempo evitato" />
+                </div>
+
+                <p className="review-insight-card__copy">{outcome.copy}</p>
+
+                <div className="summary-card__meta">
+                  <Badge>{batch.readyCount} pronte</Badge>
+                  <Badge>{batch.approvedCount} approvate</Badge>
+                  {batch.failedCount > 0 ? <Badge tone="danger">{batch.failedCount} fallite</Badge> : null}
+                  <Badge>{outcome.downloadNote}</Badge>
+                </div>
+              </section>
             </div>
 
             <div className="compare-grid">
@@ -413,6 +491,7 @@ export default function App() {
                     key={image.id}
                     image={image}
                     index={index}
+                    isRecommended={recommendedCover?.image?.id === image.id}
                     onEnhance={handleEnhanceSingle}
                     onApprove={handleApprove}
                   />
@@ -504,7 +583,7 @@ function ProgressCard({ progress }) {
   );
 }
 
-function CompareCard({ image, index, onEnhance, onApprove }) {
+function CompareCard({ image, index, isRecommended, onEnhance, onApprove }) {
   const [position, setPosition] = useState(0);
   const frameRef = useRef(null);
   const plannedMode = index < 2 ? "hero" : "recover";
@@ -556,6 +635,7 @@ function CompareCard({ image, index, onEnhance, onApprove }) {
           </span>
         </div>
         <div className="summary-card__meta">
+          {isRecommended ? <Badge tone="success">Copertina consigliata</Badge> : null}
           <Badge tone={badgeTone(image.processing_status)}>{humanizeStatus(image.processing_status)}</Badge>
           {image.approval_status !== "pending" ? (
             <Badge tone="success">{humanizeStatus(image.approval_status)}</Badge>
@@ -647,6 +727,15 @@ function EmptyState({ title, description }) {
       <p className="eyebrow">Nessun contenuto</p>
       <h3>{title}</h3>
       <p>{description}</p>
+    </div>
+  );
+}
+
+function MetricCard({ value, label }) {
+  return (
+    <div className="metric-card">
+      <strong>{value}</strong>
+      <span>{label}</span>
     </div>
   );
 }
@@ -823,6 +912,96 @@ function buildBatchSummary(currentImport) {
     busyCount,
     approvedCount,
     failedCount,
+  };
+}
+
+function pickRecommendedCover(currentImport) {
+  if (!currentImport?.images?.length) {
+    return null;
+  }
+
+  const candidates = [...currentImport.images].map((image, index) => ({ image, index }));
+  const ranked = [...candidates].sort((a, b) => coverScore(b) - coverScore(a));
+  const selected = ranked[0];
+  if (!selected || coverScore(selected) <= 0) {
+    return null;
+  }
+
+    return {
+    ...selected,
+    modeLabel: selected.index < 2 ? "Hero vetrina" : "Gallery premium",
+    statusLabel:
+      selected.image.approval_status === "approved_enhanced"
+        ? "Già approvata"
+        : selected.image.processing_status === "candidate_ready"
+          ? "Pronta"
+          : "In preparazione",
+    copy:
+      selected.index < 2
+        ? "Questa è la foto che userei come immagine vetrina: stacca la barca dal rumore e rende il listing molto più premium."
+        : "Questa è la foto più forte disponibile al momento per rappresentare il listing con un look più pulito e vendibile.",
+  };
+}
+
+function coverScore({ image, index }) {
+  let score = 0;
+  if (index < 2) score += 30;
+  if (image.approval_status === "approved_enhanced") score += 60;
+  else if (image.processing_status === "candidate_ready" && image.urls.enhanced) score += 45;
+  else if (image.approval_status === "approved_original") score += 30;
+  else if (image.urls.original || image.original_url) score += 10;
+  if (image.processing_status === "failed") score -= 20;
+  return score;
+}
+
+function bestDisplayUrl(image) {
+  return image?.urls?.enhanced || image?.urls?.original || image?.original_url || "";
+}
+
+function buildOutcomeSummary(currentImport) {
+  if (!currentImport?.images?.length) {
+    return {
+      heroCount: 0,
+      galleryCount: 0,
+      approvedCount: 0,
+      minutesSaved: 0,
+      headline: "Appena importi le foto, qui compare il risultato del listing",
+      copy: "Genererò due immagini vetrina più spinte e il resto della gallery in versione più premium e pulita.",
+      downloadNote: "ZIP disponibile dopo l'approvazione",
+    };
+  }
+
+  const images = currentImport.images;
+  const heroReady = images
+    .slice(0, 2)
+    .filter((image) => image.processing_status === "candidate_ready" || image.approval_status === "approved_enhanced")
+    .length;
+  const galleryReady = images
+    .slice(2)
+    .filter((image) => image.processing_status === "candidate_ready" || image.approval_status === "approved_enhanced")
+    .length;
+  const approvedCount = countApproved(images);
+  const readyCount = countBy(images, "candidate_ready");
+  const minutesSaved = heroReady * 8 + galleryReady * 4;
+  const headline =
+    approvedCount > 0
+      ? `${approvedCount} foto sono già pronte da pubblicare`
+      : readyCount > 0
+        ? `${readyCount} foto sono già pronte da rivedere`
+        : "Sto costruendo il set finale del listing";
+  const copy =
+    approvedCount > 0
+      ? "Lo ZIP finale manterrà l'ordine dell'import ed esporta solo le immagini che hai approvato."
+      : "Appena approvi le immagini migliori, puoi scaricare un pacchetto ordinato e pronto per essere caricato sul marketplace.";
+
+  return {
+    heroCount: heroReady,
+    galleryCount: galleryReady,
+    approvedCount,
+    minutesSaved,
+    headline,
+    copy,
+    downloadNote: approvedCount ? "ZIP ordinato in base all'import" : "ZIP attivo dopo almeno un'approvazione",
   };
 }
 
