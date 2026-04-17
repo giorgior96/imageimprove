@@ -556,6 +556,10 @@ a {
   align-content: start;
 }
 
+.review-insight-card--solo {
+  margin-bottom: 16px;
+}
+
 .review-insight-card__head {
   display: flex;
   justify-content: space-between;

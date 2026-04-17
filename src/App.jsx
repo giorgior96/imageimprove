@@ -58,7 +58,7 @@ export default function App() {
 
   const progress = useMemo(() => buildImportProgress(currentImport), [currentImport]);
   const batch = useMemo(() => buildBatchSummary(currentImport), [currentImport]);
-  const recommendedCover = useMemo(() => pickRecommendedCover(currentImport), [currentImport]);
+  const recommendedCoverIndex = useMemo(() => pickRecommendedCoverIndex(currentImport), [currentImport]);
   const outcome = useMemo(() => buildOutcomeSummary(currentImport), [currentImport]);
 
   async function refreshImport(importId) {
@@ -402,87 +402,51 @@ export default function App() {
               <p>Le immagini restano nello stesso ordine dell&apos;import. Le card si aggiornano mentre arrivano i risultati.</p>
             </div>
 
-            <div className="review-overview">
-              <section className="review-showcase-card">
-                <div className="review-showcase-card__copy">
-                  <p className="eyebrow">Copertina consigliata</p>
-                  <h3>
-                    {recommendedCover
-                      ? `Foto ${recommendedCover.index + 1} pronta per la vetrina`
-                      : "Sto preparando la cover consigliata"}
-                  </h3>
-                  <p>
-                    {recommendedCover
-                      ? recommendedCover.copy
-                      : "Appena arriva una Hero o una foto pronta da usare, qui ti mostro subito la copertina più forte del set."}
-                  </p>
-                  <div className="summary-card__meta">
-                    {recommendedCover ? <Badge tone="success">Foto {recommendedCover.index + 1}</Badge> : null}
-                    {recommendedCover?.modeLabel ? <Badge>{recommendedCover.modeLabel}</Badge> : null}
-                    {recommendedCover?.statusLabel ? <Badge>{recommendedCover.statusLabel}</Badge> : null}
-                  </div>
+            <section className="review-insight-card review-insight-card--solo">
+              <div className="review-insight-card__head">
+                <div>
+                  <p className="eyebrow">Risultato del listing</p>
+                  <h3>{outcome.headline}</h3>
                 </div>
+                <button
+                  className="button button--primary"
+                  type="button"
+                  disabled={!outcome.approvedCount}
+                  onClick={handleDownloadApproved}
+                >
+                  Scarica approvate
+                </button>
+              </div>
 
-                <div className="review-showcase-card__media">
-                  {recommendedCover?.image ? (
-                    <>
-                      <img
-                        src={bestDisplayUrl(recommendedCover.image)}
-                        alt={`Copertina consigliata foto ${recommendedCover.index + 1}`}
-                      />
-                      <div className="review-showcase-card__media-chip">Copertina consigliata</div>
-                    </>
-                  ) : (
-                    <div className="review-showcase-card__placeholder">
-                      <span>Hero in preparazione</span>
-                    </div>
-                  )}
+              <div className="step-progress">
+                <div className="step-progress__head">
+                  <strong>{batch.processedCount}/{batch.totalCount} elaborate</strong>
+                  <span>{batch.busyCount ? `${batch.busyCount} in lavorazione` : "Batch aggiornato"}</span>
                 </div>
-              </section>
-
-              <section className="review-insight-card">
-                <div className="review-insight-card__head">
-                  <div>
-                    <p className="eyebrow">Risultato del listing</p>
-                    <h3>{outcome.headline}</h3>
-                  </div>
-                  <button
-                    className="button button--primary"
-                    type="button"
-                    disabled={!outcome.approvedCount}
-                    onClick={handleDownloadApproved}
-                  >
-                    Scarica approvate
-                  </button>
+                <div className="step-progress__bar">
+                  <div className="step-progress__fill" style={{ width: `${batch.progressPercent}%` }} />
                 </div>
+              </div>
 
-                <div className="step-progress">
-                  <div className="step-progress__head">
-                    <strong>{batch.processedCount}/{batch.totalCount} elaborate</strong>
-                    <span>{batch.busyCount ? `${batch.busyCount} in lavorazione` : "Batch aggiornato"}</span>
-                  </div>
-                  <div className="step-progress__bar">
-                    <div className="step-progress__fill" style={{ width: `${batch.progressPercent}%` }} />
-                  </div>
-                </div>
+              <div className="review-insight-card__metrics">
+                <MetricCard value={outcome.heroCount} label="Hero pronte" />
+                <MetricCard value={outcome.galleryCount} label="Gallery migliorate" />
+                <MetricCard value={outcome.approvedCount} label="Già approvate" />
+                <MetricCard value={`~${outcome.minutesSaved} min`} label="Tempo evitato" />
+              </div>
 
-                <div className="review-insight-card__metrics">
-                  <MetricCard value={outcome.heroCount} label="Hero pronte" />
-                  <MetricCard value={outcome.galleryCount} label="Gallery migliorate" />
-                  <MetricCard value={outcome.approvedCount} label="Già approvate" />
-                  <MetricCard value={`~${outcome.minutesSaved} min`} label="Tempo evitato" />
-                </div>
+              <p className="review-insight-card__copy">{outcome.copy}</p>
 
-                <p className="review-insight-card__copy">{outcome.copy}</p>
-
-                <div className="summary-card__meta">
-                  <Badge>{batch.readyCount} pronte</Badge>
-                  <Badge>{batch.approvedCount} approvate</Badge>
-                  {batch.failedCount > 0 ? <Badge tone="danger">{batch.failedCount} fallite</Badge> : null}
-                  <Badge>{outcome.downloadNote}</Badge>
-                </div>
-              </section>
-            </div>
+              <div className="summary-card__meta">
+                {recommendedCoverIndex !== null ? (
+                  <Badge tone="success">Copertina consigliata: foto {recommendedCoverIndex + 1}</Badge>
+                ) : null}
+                <Badge>{batch.readyCount} pronte</Badge>
+                <Badge>{batch.approvedCount} approvate</Badge>
+                {batch.failedCount > 0 ? <Badge tone="danger">{batch.failedCount} fallite</Badge> : null}
+                <Badge>{outcome.downloadNote}</Badge>
+              </div>
+            </section>
 
             <div className="compare-grid">
               {currentImport?.images.length ? (
@@ -491,7 +455,7 @@ export default function App() {
                     key={image.id}
                     image={image}
                     index={index}
-                    isRecommended={recommendedCover?.image?.id === image.id}
+                    isRecommended={recommendedCoverIndex === index}
                     onEnhance={handleEnhanceSingle}
                     onApprove={handleApprove}
                   />
@@ -915,7 +879,7 @@ function buildBatchSummary(currentImport) {
   };
 }
 
-function pickRecommendedCover(currentImport) {
+function pickRecommendedCoverIndex(currentImport) {
   if (!currentImport?.images?.length) {
     return null;
   }
@@ -927,20 +891,7 @@ function pickRecommendedCover(currentImport) {
     return null;
   }
 
-    return {
-    ...selected,
-    modeLabel: selected.index < 2 ? "Hero vetrina" : "Gallery premium",
-    statusLabel:
-      selected.image.approval_status === "approved_enhanced"
-        ? "Già approvata"
-        : selected.image.processing_status === "candidate_ready"
-          ? "Pronta"
-          : "In preparazione",
-    copy:
-      selected.index < 2
-        ? "Questa è la foto che userei come immagine vetrina: stacca la barca dal rumore e rende il listing molto più premium."
-        : "Questa è la foto più forte disponibile al momento per rappresentare il listing con un look più pulito e vendibile.",
-  };
+  return selected.index;
 }
 
 function coverScore({ image, index }) {
@@ -952,10 +903,6 @@ function coverScore({ image, index }) {
   else if (image.urls.original || image.original_url) score += 10;
   if (image.processing_status === "failed") score -= 20;
   return score;
-}
-
-function bestDisplayUrl(image) {
-  return image?.urls?.enhanced || image?.urls?.original || image?.original_url || "";
 }
 
 function buildOutcomeSummary(currentImport) {
@@ -991,8 +938,8 @@ function buildOutcomeSummary(currentImport) {
         : "Sto costruendo il set finale del listing";
   const copy =
     approvedCount > 0
-      ? "Lo ZIP finale manterrà l'ordine dell'import ed esporta solo le immagini che hai approvato."
-      : "Appena approvi le immagini migliori, puoi scaricare un pacchetto ordinato e pronto per essere caricato sul marketplace.";
+      ? "Lo ZIP finale mantiene l'ordine dell'import ed esporta solo le immagini che hai scelto. Le prime due restano dedicate alla vetrina, le altre alla gallery."
+      : "Le prime due foto vengono spinte in Hero per la vetrina. Le altre vengono rese più pulite, luminose e professionali per la gallery.";
 
   return {
     heroCount: heroReady,
