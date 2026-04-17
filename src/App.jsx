@@ -133,7 +133,7 @@ export default function App() {
     }
 
     setIsEnhancingAll(true);
-    setFeedbackState("Avvio il miglioramento: prime 2 Hero, le altre Recover.", "neutral");
+    setFeedbackState("Avvio il miglioramento: 2 Hero, 3 Recover Pro, resto Recover Fast.", "neutral");
     try {
       const payload = await api(`/imports/${currentImport.id}/enhance`, {
         method: "POST",
@@ -316,7 +316,7 @@ export default function App() {
               </div>
               <p>
                 {currentImport?.images.length
-                  ? "Le prime 2 immagini di vetrina vanno in Hero. Le altre ricevono un Recover più sobrio."
+                  ? "Le prime 2 immagini vanno in Hero. Le successive 3 ricevono un Recover Pro. Le restanti usano un Recover Fast più veloce."
                   : "Appena l'import è pronto, qui vedrai le immagini."}
               </p>
             </div>
@@ -346,9 +346,14 @@ export default function App() {
                 <p>Scenario più aspirazionale, pulizia aggressiva del contesto e completamento dell&apos;inquadratura.</p>
               </article>
               <article className="strategy-card strategy-card--recover">
-                <p className="strategy-card__tag">Foto 3-10</p>
-                <h3>Recover luxury</h3>
-                <p>Luce, materiali, ordine e atmosfera più premium, senza falsare la barca.</p>
+                <p className="strategy-card__tag">Foto 3-5</p>
+                <h3>Recover Pro</h3>
+                <p>Miglioramento più forte, look da foto professionale di prodotto, senza cambiare la barca.</p>
+              </article>
+              <article className="strategy-card strategy-card--fast">
+                <p className="strategy-card__tag">Foto 6-10</p>
+                <h3>Recover Fast</h3>
+                <p>Gallery più veloce da generare, più pulita e pronta da pubblicare, sempre fedele alla barca.</p>
               </article>
             </div>
 
@@ -364,7 +369,7 @@ export default function App() {
                     ) : null}
                     <div className="thumb-card__meta">
                       <strong>Foto {index + 1}</strong>
-                      <span>{index < 2 ? "Hero vetrina" : "Recover luxury"}</span>
+                      <span>{plannedModeLabel(index)}</span>
                     </div>
                   </article>
                 ))
@@ -550,7 +555,7 @@ function ProgressCard({ progress }) {
 function CompareCard({ image, index, isRecommended, onEnhance, onApprove }) {
   const [position, setPosition] = useState(0);
   const frameRef = useRef(null);
-  const plannedMode = index < 2 ? "hero" : "recover";
+  const plannedMode = plannedModeForIndex(index);
   const showCompare = Boolean(image.urls.enhanced);
   const processing = isBusy(image);
 
@@ -595,7 +600,7 @@ function CompareCard({ image, index, isRecommended, onEnhance, onApprove }) {
         <div className="compare-card__titleblock">
           <span className="compare-card__title">Foto {index + 1}</span>
           <span className="compare-card__subline">
-            {index < 2 ? "Hero vetrina" : "Recover luxury"} / {humanizeStatus(image.processing_status)}
+            {plannedModeLabel(index)} / {humanizeStatus(image.processing_status)}
           </span>
         </div>
         <div className="summary-card__meta">
@@ -638,11 +643,9 @@ function CompareCard({ image, index, isRecommended, onEnhance, onApprove }) {
               <div className="compare-processing__glass" />
               <div className="compare-processing__content">
                 <div className="compare-processing__chip">AI in corso</div>
-                <strong>{index < 2 ? "Sto creando la versione Hero" : "Sto migliorando la foto"}</strong>
+                <strong>{processingHeadline(plannedMode)}</strong>
                 <span>
-                  {index < 2
-                    ? "Isolamento della barca, scena più aspirazionale e rifinitura premium."
-                    : "Luce, materiali, ordine e resa più premium in lavorazione."}
+                  {processingCopy(plannedMode)}
                 </span>
                 <div className="compare-processing__bar">
                   <div className="compare-processing__fill" />
@@ -661,7 +664,7 @@ function CompareCard({ image, index, isRecommended, onEnhance, onApprove }) {
 
       <div className="wizard-actions wizard-actions--tight">
         <button className="button button--ghost" type="button" onClick={() => onEnhance(image.id, plannedMode)}>
-          {plannedMode === "hero" ? "Rigenera Hero" : "Rigenera Recover"}
+          {regenerateLabel(plannedMode)}
         </button>
         <div className="button-cluster">
           <button className="button button--ghost" type="button" onClick={() => onApprove(image.id, "original")}>
@@ -968,6 +971,19 @@ function detectSourceLabel(url) {
   return "Portale";
 }
 
+function plannedModeForIndex(index) {
+  if (index < 2) return "hero";
+  if (index < 5) return "recover";
+  return "recover_fast";
+}
+
+function plannedModeLabel(index) {
+  const mode = plannedModeForIndex(index);
+  if (mode === "hero") return "Hero vetrina";
+  if (mode === "recover") return "Recover Pro";
+  return "Recover Fast";
+}
+
 function countBy(images, status) {
   return images.filter((image) => image.processing_status === status).length;
 }
@@ -981,7 +997,9 @@ function isBusy(image) {
 }
 
 function humanizeMode(mode) {
-  return mode === "hero" ? "Hero" : "Recover";
+  if (mode === "hero") return "Hero";
+  if (mode === "recover_fast") return "Recover Fast";
+  return "Recover";
 }
 
 function humanizeStatus(value) {
@@ -1013,9 +1031,13 @@ function approvalCopy(image, plannedMode) {
   if (image.processing_status === "failed") {
     return "Questa elaborazione non è riuscita. Puoi rilanciare o tenere l'originale.";
   }
-  return plannedMode === "hero"
-    ? "Questa è una foto vetrina: uso un prompt Hero molto più spinto."
-    : "Questa è una foto gallery: uso un Recover più sobrio e luxury.";
+  if (plannedMode === "hero") {
+    return "Questa è una foto vetrina: uso un prompt Hero molto più spinto.";
+  }
+  if (plannedMode === "recover") {
+    return "Questa è una foto gallery importante: uso un Recover Pro più forte ma fedele alla barca.";
+  }
+  return "Questa è una foto gallery: uso un Recover Fast più rapido, pulito e sempre rispettoso della barca reale.";
 }
 
 function badgeTone(status) {
@@ -1033,4 +1055,26 @@ function cardTone(image) {
     return "compare-card--processing";
   }
   return "";
+}
+
+function processingHeadline(mode) {
+  if (mode === "hero") return "Sto creando la versione Hero";
+  if (mode === "recover") return "Sto creando la versione Recover Pro";
+  return "Sto creando la versione Recover Fast";
+}
+
+function processingCopy(mode) {
+  if (mode === "hero") {
+    return "Isolamento della barca, scena più aspirazionale e rifinitura premium.";
+  }
+  if (mode === "recover") {
+    return "Luce, materiali, ordine e resa da foto professionale di prodotto in lavorazione.";
+  }
+  return "Pulizia gallery, luce migliore e look più professionale in una passata più veloce.";
+}
+
+function regenerateLabel(mode) {
+  if (mode === "hero") return "Rigenera Hero";
+  if (mode === "recover") return "Rigenera Recover Pro";
+  return "Rigenera Recover Fast";
 }

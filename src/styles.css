@@ -594,7 +594,7 @@ a {
 
 .strategy-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin: 14px 0;
 }
@@ -609,6 +609,12 @@ a {
   background:
     linear-gradient(180deg, rgba(248, 255, 252, 0.98), rgba(255, 255, 255, 0.98)),
     linear-gradient(140deg, rgba(47, 159, 141, 0.11), rgba(255, 255, 255, 0.5));
+}
+
+.strategy-card--fast {
+  background:
+    linear-gradient(180deg, rgba(246, 249, 255, 0.98), rgba(255, 255, 255, 0.98)),
+    linear-gradient(140deg, rgba(87, 128, 189, 0.11), rgba(255, 255, 255, 0.5));
 }
 
 .strategy-card__tag {
